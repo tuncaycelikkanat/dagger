@@ -9,8 +9,4 @@ router = APIRouter(prefix="/health", tags=["Health"])
 def health_check() -> dict[str, str]:
     settings = get_settings()
 
-    return {
-        "status": "ok",
-        "app": "DAGGER",
-        "environment": settings.app_env
-    }
+    return {"status": "ok", "app": "DAGGER", "environment": settings.app_env}

@@ -1,58 +1,100 @@
 from pathlib import Path
-from typing import Annotated
-from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile, status
+import fitz
+from fastapi.testclient import TestClient
 
-from app.core.config import get_settings
-from app.schemas.document import DocumentUploadResponse
-from app.security.hashing import calculate_sha256
+from app.main import app
 
-router = APIRouter(prefix="/documents", tags=["Documents"])
+client = TestClient(app)
 
 
-@router.post("/upload", response_model=DocumentUploadResponse)
-async def upload_document(
-    file: Annotated[UploadFile, File()],
-) -> DocumentUploadResponse:
-    settings = get_settings()
-
-    if file.content_type != "application/pdf":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are supported for now.",
-        )
-
-    content = await file.read()
-    size_bytes = len(content)
-    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
-
-    if size_bytes > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File is too large. Max size is {settings.max_upload_size_mb} MB.",
-        )
-
-    document_id = f"doc_{uuid4().hex}"
-    original_filename = file.filename or "uploaded.pdf"
-    safe_filename = Path(original_filename).name
-
-    upload_dir = Path(settings.upload_dir)
-    upload_dir.mkdir(parents=True, exist_ok=True)
-
-    storage_filename = f"{document_id}_{safe_filename}"
-    storage_path = upload_dir / storage_filename
-
-    storage_path.write_bytes(content)
-
-    sha256_hash = calculate_sha256(storage_path)
-
-    return DocumentUploadResponse(
-        document_id=document_id,
-        filename=safe_filename,
-        content_type=file.content_type or "application/pdf",
-        size_bytes=size_bytes,
-        sha256_hash=sha256_hash,
-        storage_path=str(storage_path),
-        status="uploaded",
+def create_sample_pdf_bytes() -> bytes:
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text(
+        (72, 72),
+        "DAGGER is a deterministic document intelligence system. "
+        "It extracts text from PDF files and splits content into chunks.",
     )
+
+    pdf_bytes = bytes(document.tobytes())
+    document.close()
+
+    return pdf_bytes
+
+
+def test_upload_rejects_non_pdf() -> None:
+    response = client.post(
+        "/api/v1/documents/upload",
+        files={
+            "file": (
+                "test.txt",
+                b"hello world",
+                "text/plain",
+            )
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Only PDF files are supported for now."
+
+
+def test_upload_accepts_pdf() -> None:
+    pdf_content = create_sample_pdf_bytes()
+
+    response = client.post(
+        "/api/v1/documents/upload",
+        files={
+            "file": (
+                "test.pdf",
+                pdf_content,
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["filename"] == "test.pdf"
+    assert data["content_type"] == "application/pdf"
+    assert data["size_bytes"] == len(pdf_content)
+    assert data["status"] == "uploaded"
+    assert len(data["sha256_hash"]) == 64
+
+    storage_path = Path(data["storage_path"])
+    assert storage_path.exists()
+
+
+def test_process_uploaded_pdf() -> None:
+    pdf_content = create_sample_pdf_bytes()
+
+    upload_response = client.post(
+        "/api/v1/documents/upload",
+        files={
+            "file": (
+                "process-test.pdf",
+                pdf_content,
+                "application/pdf",
+            )
+        },
+    )
+
+    assert upload_response.status_code == 200
+
+    document_id = upload_response.json()["document_id"]
+
+    process_response = client.post(f"/api/v1/documents/{document_id}/process")
+
+    assert process_response.status_code == 200
+
+    data = process_response.json()
+
+    assert data["document_id"] == document_id
+    assert data["pages_extracted"] == 1
+    assert data["chunks_created"] >= 1
+    assert data["status"] == "processed"
+
+    chunks_path = Path(data["chunks_path"])
+    assert chunks_path.exists()

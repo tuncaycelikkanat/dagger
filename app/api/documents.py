@@ -5,7 +5,18 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.core.config import get_settings
-from app.schemas.document import DocumentUploadResponse
+from app.retrieval.chunker import chunk_pages
+from app.retrieval.document_store import (
+    load_document_metadata,
+    save_document_chunks,
+    save_document_metadata,
+)
+from app.retrieval.pdf_text_extractor import extract_pdf_pages
+from app.schemas.document import (
+    DocumentMetadata,
+    DocumentProcessingResponse,
+    DocumentUploadResponse,
+)
 from app.security.hashing import calculate_sha256
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
@@ -47,7 +58,7 @@ async def upload_document(
 
     sha256_hash = calculate_sha256(storage_path)
 
-    return DocumentUploadResponse(
+    metadata = DocumentMetadata(
         document_id=document_id,
         filename=safe_filename,
         content_type=file.content_type or "application/pdf",
@@ -55,4 +66,56 @@ async def upload_document(
         sha256_hash=sha256_hash,
         storage_path=str(storage_path),
         status="uploaded",
+    )
+
+    save_document_metadata(metadata)
+
+    return DocumentUploadResponse(
+        document_id=metadata.document_id,
+        filename=metadata.filename,
+        content_type=metadata.content_type,
+        size_bytes=metadata.size_bytes,
+        sha256_hash=metadata.sha256_hash,
+        storage_path=metadata.storage_path,
+        status=metadata.status,
+    )
+
+
+@router.post("/{document_id}/process", response_model=DocumentProcessingResponse)
+def process_document(document_id: str) -> DocumentProcessingResponse:
+    settings = get_settings()
+
+    try:
+        metadata = load_document_metadata(document_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Document not found: {document_id}",
+        ) from exc
+
+    pdf_path = Path(metadata.storage_path)
+
+    if not pdf_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Stored PDF file not found: {document_id}",
+        )
+
+    pages = extract_pdf_pages(pdf_path)
+
+    chunks = chunk_pages(
+        document_id=document_id,
+        pages=pages,
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+    )
+
+    chunks_path = save_document_chunks(document_id, chunks)
+
+    return DocumentProcessingResponse(
+        document_id=document_id,
+        pages_extracted=len(pages),
+        chunks_created=len(chunks),
+        chunks_path=str(chunks_path),
+        status="processed",
     )

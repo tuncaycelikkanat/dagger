@@ -5,11 +5,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = Field(default="DAGGER", alias="APP_NAME")
     app_env: str = Field(default="development", alias="APP_ENV")
@@ -18,7 +14,14 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
 
     upload_dir: str = Field(default="storage/uploads", alias="UPLOAD_DIR")
+    metadata_dir: str = Field(default="storage/metadata", alias="METADATA_DIR")
+    processed_dir: str = Field(default="storage/processed", alias="PROCESSED_DIR")
+
     max_upload_size_mb: int = Field(default=25, alias="MAX_UPLOAD_SIZE_MB")
+
+    chunk_size: int = Field(default=1200, alias="CHUNK_SIZE")
+    chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
+
 
 @lru_cache
 def get_settings() -> Settings:
