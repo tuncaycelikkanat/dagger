@@ -9,4 +9,18 @@ router = APIRouter(prefix="/health", tags=["Health"])
 def health_check() -> dict[str, str]:
     settings = get_settings()
 
-    return {"status": "ok", "app": "DAGGER", "environment": settings.app_env}
+    return {
+        "status": "ok",
+        "app": settings.app_name,
+        "environment": settings.app_env,
+    }
+
+
+@router.get("/llm")
+def llm_health_check() -> dict[str, str]:
+    settings = get_settings()
+
+    return {
+        "status": "ok",
+        "provider": settings.default_llm_provider,
+    }

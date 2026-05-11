@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     chunk_size: int = Field(default=1200, alias="CHUNK_SIZE")
     chunk_overlap: int = Field(default=200, alias="CHUNK_OVERLAP")
 
+    default_llm_provider: str = Field(default="mock", alias="DEFAULT_LLM_PROVIDER")
 
 @lru_cache
 def get_settings() -> Settings:

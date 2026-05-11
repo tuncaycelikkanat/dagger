@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status
 
-from app.agents.answer_generator import generate_mock_answer
+from app.agents.answer_generator import generate_answer
+from app.providers.provider_factory import get_llm_provider
 from app.retrieval.document_store import load_document_chunks, load_document_metadata
 from app.retrieval.keyword_retriever import retrieve_relevant_chunks
 from app.schemas.query import (
@@ -76,9 +77,12 @@ def answer_document(
         top_k=request.top_k,
     )
 
-    answer = generate_mock_answer(
+    provider = get_llm_provider()
+
+    answer = generate_answer(
         question=request.question,
         retrieved_chunks=retrieved_chunks,
+        provider=provider,
     )
 
     sources = [
