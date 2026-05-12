@@ -12,6 +12,7 @@ dependencies = [
     "python-multipart>=0.0.9",
     "fitz>=0.0.1.dev2",
     "pymupdf>=1.27.2.3",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]

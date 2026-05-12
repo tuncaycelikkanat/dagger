@@ -23,4 +23,8 @@ def llm_health_check() -> dict[str, str]:
     return {
         "status": "ok",
         "provider": settings.default_llm_provider,
+        "default_model": settings.ollama_model_default,
+        "architect_model": settings.ollama_model_architect,
+        "auditor_model": settings.ollama_model_auditor,
+        "coder_model": settings.ollama_model_coder,
     }

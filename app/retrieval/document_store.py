@@ -3,6 +3,7 @@ from pathlib import Path
 
 from app.core.config import get_settings
 from app.schemas.document import DocumentChunk, DocumentMetadata
+from app.schemas.embedding import ChunkEmbedding
 
 
 def save_document_metadata(metadata: DocumentMetadata) -> Path:
@@ -48,3 +49,28 @@ def load_document_chunks(document_id: str) -> list[DocumentChunk]:
 
     raw_data = json.loads(chunks_path.read_text(encoding="utf-8"))
     return [DocumentChunk.model_validate(chunk) for chunk in raw_data]
+
+def save_chunk_embeddings(document_id: str, embeddings: list[ChunkEmbedding]) -> Path:
+    settings = get_settings()
+
+    processed_dir = Path(settings.processed_dir) / document_id
+    processed_dir.mkdir(parents=True, exist_ok=True)
+
+    embeddings_path = processed_dir / "embeddings.json"
+    embeddings_data = [embedding.model_dump() for embedding in embeddings]
+    embeddings_path.write_text(
+        json.dumps(embeddings_data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+    return embeddings_path
+
+def load_chunk_embeddings(document_id: str) -> list[ChunkEmbedding]:
+    settings = get_settings()
+    embeddings_path = Path(settings.processed_dir) / document_id / "embeddings.json"
+
+    if not embeddings_path.exists():
+        raise FileNotFoundError(f"Embeddings for document_id {document_id} not found.")
+
+    raw_data = json.loads(embeddings_path.read_text(encoding="utf-8"))
+    return [ChunkEmbedding.model_validate(embedding) for embedding in raw_data]

@@ -5,12 +5,15 @@ from uuid import uuid4
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.core.config import get_settings
+from app.providers.embedding_provider import get_embedding_provider
 from app.retrieval.chunker import chunk_pages
 from app.retrieval.document_store import (
     load_document_metadata,
+    save_chunk_embeddings,
     save_document_chunks,
     save_document_metadata,
 )
+from app.retrieval.embedding_indexer import build_chunk_embeddings
 from app.retrieval.pdf_text_extractor import extract_pdf_pages
 from app.schemas.document import (
     DocumentMetadata,
@@ -111,6 +114,13 @@ def process_document(document_id: str) -> DocumentProcessingResponse:
     )
 
     chunks_path = save_document_chunks(document_id, chunks)
+
+    embedding_provider = get_embedding_provider()
+    chunk_embeddings = build_chunk_embeddings(
+        chunks=chunks,
+        embedding_provider=embedding_provider,
+    )
+    save_chunk_embeddings(document_id, chunk_embeddings)
 
     return DocumentProcessingResponse(
         document_id=document_id,

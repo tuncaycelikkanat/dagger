@@ -1,4 +1,5 @@
 from app.providers.base import LLMProvider
+from app.providers.model_roles import ModelRole
 from app.retrieval.context_builder import build_context_from_chunks
 from app.schemas.query import RetrievedChunk
 
@@ -45,6 +46,7 @@ def generate_answer(
         prompt=prompt,
         system_prompt="You answer using only the given document context.",
         temperature=0.0,
+        role=ModelRole.ARCHITECT,
     )
 
     return answer
