@@ -1,6 +1,7 @@
 import math
 
 from app.providers.embedding_provider import OllamaEmbeddingProvider
+from app.retrieval.query_booster import calculate_query_boost
 from app.schemas.embedding import ChunkEmbedding
 from app.schemas.query import RetrievedChunk
 
@@ -31,7 +32,9 @@ def retrieve_semantic_chunks(
     scored_chunks: list[RetrievedChunk] = []
 
     for chunk_embedding in embeddings:
-        score = cosine_similarity(query_embedding, chunk_embedding.embedding)
+        semantic_score = cosine_similarity(query_embedding, chunk_embedding.embedding)
+        query_boost = calculate_query_boost(question, chunk_embedding.text)
+        final_score = semantic_score + query_boost
 
         scored_chunks.append(
             RetrievedChunk(
@@ -41,7 +44,7 @@ def retrieve_semantic_chunks(
                 chunk_index=chunk_embedding.chunk_index,
                 text=chunk_embedding.text,
                 char_count=chunk_embedding.char_count,
-                score=score,
+                score=final_score,
             )
         )
 

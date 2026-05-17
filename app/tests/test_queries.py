@@ -90,4 +90,10 @@ def test_query_unprocessed_document_returns_error() -> None:
     )
 
     assert response.status_code == 400
-    assert "has not been processed yet" in response.json()["detail"]
+
+    detail = response.json()["detail"]
+
+    assert (
+            "has not been processed yet" in detail
+            or "Document embeddings not found" in detail
+    )

@@ -24,7 +24,8 @@ from app.security.hashing import calculate_sha256
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
-
+# Upload endpoint for PDF documents. Validates file type and size, saves the file,
+# extracts metadata, and stores it.
 @router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: Annotated[UploadFile, File()],
@@ -83,7 +84,8 @@ async def upload_document(
         status=metadata.status,
     )
 
-
+# Processing endpoint that extracts text from the uploaded PDF, chunks it, generates embeddings,
+# and saves everything for later retrieval.
 @router.post("/{document_id}/process", response_model=DocumentProcessingResponse)
 def process_document(document_id: str) -> DocumentProcessingResponse:
     settings = get_settings()

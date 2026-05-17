@@ -54,3 +54,21 @@ class DocumentAnswerResponse(BaseModel):
     answer: str
     sources: list[SourceReference]
     status: str
+
+
+class MultiDocumentAnswerRequest(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    document_ids: list[str] = Field(min_length=1, max_length=10)
+    question: str = Field(min_length=1)
+    top_k_per_document: int = Field(default=4, ge=1, le=10)
+
+
+class MultiDocumentAnswerResponse(BaseModel):
+    model_config = ConfigDict(strict=True)
+
+    document_ids: list[str]
+    question: str
+    answer: str
+    sources: list[SourceReference]
+    status: str
